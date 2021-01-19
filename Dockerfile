@@ -14,10 +14,10 @@ ARG RESTY_PCRE_VERSION="8.40"
 ARG RESTY_J="1"
 ARG RESTY_NPS_VERSION="1.12.34.2"
 ARG RESTY_CONFIG_OPTIONS="\
-    --prefix=/usr/share \
+    --prefix=/usr/local \
     --conf-path=/etc/nginx/nginx.conf \
     --sbin-path=/usr/sbin/nginx \
-	--modules-path=/usr/lib/nginx/modules \
+    --modules-path=/usr/lib/nginx/modules \
     --error-log-path=/var/log/nginx/error.log \
     --http-log-path=/var/log/nginx/access.log \
     --pid-path=/var/run/nginx.pid \
@@ -51,7 +51,7 @@ ARG RESTY_CONFIG_OPTIONS="\
     --without-http_redis_module \
     --without-http_rds_csv_module \
     --without-http_rds_json_module \
-	# 对应上面添加的模块目录
+    # 对应上面添加的模块目录
     #--add-module=/opt/ngx_http_proxy_connect_module \
     --add-dynamic-module=/opt/ngx_http_proxy_connect_module \
     "
@@ -64,6 +64,9 @@ ARG CONTAINER_PACKAGE_URL="mirrors.aliyun.com"
 # https://github.com/chobits/ngx_http_proxy_connect_module下载的主分支包
 COPY ./ngx_http_proxy_connect_module  /opt/ngx_http_proxy_connect_module
 
+#COPY ./tmp /tmp
+
+
 ENV PCRE_CONF_OPT="--enable-utf8 --enable-unicode-properties"
 
 # 1) Install apk dependencies
@@ -72,8 +75,9 @@ ENV PCRE_CONF_OPT="--enable-utf8 --enable-unicode-properties"
 # 4) Cleanup
 
 RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/repositories \
-	&& apk add gnu-libiconv --no-cache --repository http://${CONTAINER_PACKAGE_URL}/alpine/edge/community/ --allow-untrusted \
+    && apk add gnu-libiconv --no-cache --repository http://${CONTAINER_PACKAGE_URL}/alpine/edge/community/ --allow-untrusted \
     && apk add --no-cache --update --virtual .build-deps \
+    #&& apk add --no-cache --update \
         build-base \
         git \
         gd-dev \
@@ -81,11 +85,10 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
         linux-headers \
         cmake \
         make \
-        perl-dev \
         readline-dev \
         zlib-dev \
         libmaxminddb-dev \
-		# 编译ngx_http_proxy_connect_module依赖的
+        # 编译ngx_http_proxy_connect_module依赖的
                 patch \
                 pcre \
                 zlib \
@@ -97,12 +100,18 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
         libxslt \
         zlib \
         libmaxminddb \
+        #安装lcrypto
+        libressl-dev \ 
+        perl-dev \
     && cd /tmp \
     && curl -fSL https://www.openssl.org/source/openssl-${RESTY_OPENSSL_VERSION}.tar.gz | tar -zx \
+    #&&  tar -xzf openssl-${RESTY_OPENSSL_VERSION}.tar.gz \
     \
     && curl -fSL https://ftp.pcre.org/pub/pcre/pcre-${RESTY_PCRE_VERSION}.tar.gz | tar -zx \
+    #&&  tar -xzf pcre-${RESTY_PCRE_VERSION}.tar.gz \
     \
     && curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz | tar -zx \
+    #&&  tar -xzf openresty-${RESTY_VERSION}.tar.gz \
     && cd /tmp/openresty-${RESTY_VERSION} \
     && ./configure -j${RESTY_J} ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} \
         # 对应版本的patch文件
@@ -111,15 +120,16 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
     && make -j${RESTY_J} install \
     && cd /tmp \
     && curl -fSL http://luarocks.github.io/luarocks/releases/luarocks-${RESTY_LUAROCKS_VERSION}.tar.gz | tar -zx \
+    #&&  tar -xzf luarocks-${RESTY_LUAROCKS_VERSION}.tar.gz \
     && cd luarocks-${RESTY_LUAROCKS_VERSION} \
     && ./configure \
-        --prefix=/usr/share/luajit \
-       --with-lua=/usr/share/luajit \
+        --prefix=/usr/local/luajit \
+       --with-lua=/usr/local/luajit \
         --lua-suffix=jit-2.1.0-beta3 \
-        --with-lua-include=/usr/share/luajit/include/luajit-2.1 \
+        --with-lua-include=/usr/local/luajit/include/luajit-2.1 \
     && make build \
     && make install \
-    && ln -s /usr/share/luajit/bin/luarocks /bin/luarocks \
+    && ln -s /usr/local/luajit/bin/luarocks /bin/luarocks \
     && cd /tmp \
     \
     && ln -sf /dev/stdout /var/log/nginx/access.log \
@@ -129,27 +139,23 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
     \
     && mkdir -p /var/cache/nginx /etc/nginx/sites-enabled /etc/nginx/upstream-conf.d /etc/nginx/templates \
     \
-    && apk del .build-deps \
-    && rm -rf /tmp/* \
-    && rm -f /etc/nginx/conf.d/default.conf
-
-RUN \
-    apk add --no-cache --update --virtual .build-deps \
-        build-base \
-        git \
-        cmake \
-        make \
-    \
+    && rm -f /etc/nginx/conf.d/default.conf \
     && luarocks install lua-resty-libcjson \
-    && sed -ie 's#ffi_load "cjson"#ffi_load "/usr/local/lib/libcjson.so"#' /usr/share/luajit/share/lua/5.1/resty/libcjson.lua \
+    && sed -ie 's#ffi_load "cjson"#ffi_load "/usr/local/lib/libcjson.so"#' /usr/local/luajit/share/lua/5.1/resty/libcjson.lua \
     && luarocks install lua-resty-http \
     && luarocks install statsd \
     && luarocks install lua-resty-statsd \
     && luarocks install lua-resty-beanstalkd \
     && luarocks install lua-resty-jit-uuid \
     && luarocks install lua-resty-cookie \
-    \
-    && apk del .build-deps
+    && cd /tmp \
+    && git clone https://github.com/sumory/lor.git \
+    && cd lor \
+    && make install \
+    && cd /tmp \
+    && luarocks install orange --tree=/usr/local/orange/deps --local \
+    && apk del .build-deps \
+    && rm -rf /tmp/*
 
 RUN find /usr/local/bin -type f -exec chmod +x {} \;
 
