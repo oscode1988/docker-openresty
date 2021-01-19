@@ -78,6 +78,7 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
     && apk add gnu-libiconv --no-cache --repository http://${CONTAINER_PACKAGE_URL}/alpine/edge/community/ --allow-untrusted \
     && apk add --no-cache --update --virtual .build-deps \
     #&& apk add --no-cache --update \
+        curl \
         build-base \
         git \
         gd-dev \
@@ -88,21 +89,20 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
         readline-dev \
         zlib-dev \
         libmaxminddb-dev \
+        #安装lcrypto
+        libressl-dev \ 
         # 编译ngx_http_proxy_connect_module依赖的
                 patch \
                 pcre \
                 zlib \
     && apk add --no-cache --update \
-        curl \
         jq \
         gd \
         libgcc \
         libxslt \
         zlib \
         libmaxminddb \
-        #安装lcrypto
-        libressl-dev \ 
-        perl-dev \
+        perl \
     && cd /tmp \
     && curl -fSL https://www.openssl.org/source/openssl-${RESTY_OPENSSL_VERSION}.tar.gz | tar -zx \
     #&&  tar -xzf openssl-${RESTY_OPENSSL_VERSION}.tar.gz \
