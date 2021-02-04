@@ -94,14 +94,14 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
         # 编译ngx_http_proxy_connect_module依赖的
         patch \
         pcre \
-        # crypto依赖
-        perl \
     && apk add --no-cache --update \
         gd \
         # openesty依赖
         libgcc \
         #时区设置时间依赖
         tzdata \
+        # resty命令行工具和crypto依赖
+        perl \
     && cp "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && echo "$TZ" > /etc/timezone \
     && cd /tmp \
