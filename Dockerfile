@@ -1,10 +1,10 @@
 FROM alpine:3.9
 
-RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai  /etc/localtime
-
 LABEL SERVICE_NAME="nginx"
 
 HEALTHCHECK CMD docker-healthcheck
+
+ARG TZ="Asia/Shanghai"
 
 # Docker Build Arguments
 ARG RESTY_VERSION="1.19.3.1"
@@ -77,10 +77,10 @@ ENV PCRE_CONF_OPT="--enable-utf8 --enable-unicode-properties"
 RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/repositories \
     && apk add gnu-libiconv --no-cache --repository http://${CONTAINER_PACKAGE_URL}/alpine/edge/community/ --allow-untrusted \
     && apk add --no-cache --update --virtual .build-deps \
-    #&& apk add --no-cache --update \
         curl \
         build-base \
         git \
+        jq \
         gd-dev \
         libxslt-dev \
         linux-headers \
@@ -92,17 +92,18 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
         #安装lcrypto
         libressl-dev \ 
         # 编译ngx_http_proxy_connect_module依赖的
-                patch \
-                pcre \
-                zlib \
-    && apk add --no-cache --update \
-        jq \
-        gd \
-        libgcc \
-        libxslt \
-        zlib \
-        libmaxminddb \
+        patch \
+        pcre \
+        # crypto依赖
         perl \
+    && apk add --no-cache --update \
+        gd \
+        # openesty依赖
+        libgcc \
+        #时区设置时间依赖
+        tzdata \
+    && cp "/usr/share/zoneinfo/$TZ" /etc/localtime \
+    && echo "$TZ" > /etc/timezone \
     && cd /tmp \
     && curl -fSL https://www.openssl.org/source/openssl-${RESTY_OPENSSL_VERSION}.tar.gz | tar -zx \
     #&&  tar -xzf openssl-${RESTY_OPENSSL_VERSION}.tar.gz \
@@ -142,20 +143,24 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
     && rm -f /etc/nginx/conf.d/default.conf \
     && luarocks install lua-resty-libcjson \
     && sed -ie 's#ffi_load "cjson"#ffi_load "/usr/local/lib/libcjson.so"#' /usr/local/luajit/share/lua/5.1/resty/libcjson.lua \
-    && luarocks install lua-resty-http \
+    && luarocks install lua-resty-http 0.13-0 \
     && luarocks install statsd \
     && luarocks install lua-resty-statsd \
     && luarocks install lua-resty-beanstalkd \
     && luarocks install lua-resty-jit-uuid \
     && luarocks install lua-resty-cookie \
-    && cd /tmp \
-    && git clone https://github.com/sumory/lor.git \
-    && cd lor \
-    && make install \
-    && cd /tmp \
-    && luarocks install orange --tree=/usr/local/orange/deps --local \
+    && luarocks install luafilesystem 1.7.0-2 \
+    && luarocks install penlight 1.5.4-1 \
+    && luarocks install lrandom 20180729-1 \
+    && luarocks install luacrypto 0.3.2-2 \
+    && luarocks install luasocket 3.0rc1-2 \
+    && luarocks install lua-resty-kafka 0.06-0 \
+    && luarocks install lua-resty-dns-client 1.0.0-1 \
+    && luarocks install lua-resty-jwt 0.2.0-0 \
+    && luarocks install lua-resty-consul 0.2-0 \
     && apk del .build-deps \
-    && rm -rf /tmp/*
+    && rm -rf /tmp/* \
+    && cd /tmp
 
 RUN find /usr/local/bin -type f -exec chmod +x {} \;
 
