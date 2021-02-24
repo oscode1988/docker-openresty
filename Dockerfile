@@ -2,7 +2,7 @@ FROM alpine:3.9
 
 LABEL SERVICE_NAME="nginx"
 
-HEALTHCHECK CMD docker-healthcheck
+#HEALTHCHECK CMD docker-healthcheck
 
 ARG TZ="Asia/Shanghai"
 
@@ -82,7 +82,6 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
         git \
         jq \
         gd-dev \
-        libxslt-dev \
         linux-headers \
         cmake \
         make \
@@ -96,14 +95,40 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
         pcre \
     && apk add --no-cache --update \
         gd \
+        # GraphicsMagick 依赖
+        libxslt \
         # openesty依赖
         libgcc \
         #时区设置时间依赖
         tzdata \
         # resty命令行工具和crypto依赖
-        perl \
+        # perl \
     && cp "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && echo "$TZ" > /etc/timezone \
+    \
+    && cd /tmp \
+    && curl -fSL ftp://ftp.graphicsmagick.org/pub/GraphicsMagick/delegates/jpegsrc.v6b2.tar.gz | tar -zx \
+    #&& tar -xzf jpegsrc.v6b2.tar.gz \
+    && cd jpeg-6b2 \
+    && ./configure \
+    && make \
+    && make install \
+    && cd /tmp \
+    && curl -fSL ftp://ftp.graphicsmagick.org/pub/GraphicsMagick/delegates/libpng-1.6.37.tar.gz | tar -zx \
+    #&& tar -xzf libpng-1.6.37.tar.gz \
+    && cd libpng-1.6.37 \
+    && ./configure \
+    && make \
+    && make install \
+    && cd /tmp \
+    && curl -fSL ftp://ftp.graphicsmagick.org/pub/GraphicsMagick/1.3/GraphicsMagick-1.3.36.tar.gz | tar -zx \
+    #&& tar -xzf GraphicsMagick-1.3.36.tar.gz \
+    && cd GraphicsMagick-1.3.36 \
+    && ./configure --prefix=/usr/local/GraphicsMagick --enable-shared --disable-openmp --without-perl \
+    && make \
+    && make install \
+    && ln -s /usr/local/GraphicsMagick/bin/gm /usr/bin/gm \
+    \
     && cd /tmp \
     && curl -fSL https://www.openssl.org/source/openssl-${RESTY_OPENSSL_VERSION}.tar.gz | tar -zx \
     #&&  tar -xzf openssl-${RESTY_OPENSSL_VERSION}.tar.gz \
@@ -158,6 +183,7 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
     && luarocks install lua-resty-dns-client 1.0.0-1 \
     && luarocks install lua-resty-jwt 0.2.0-0 \
     && luarocks install lua-resty-consul 0.2-0 \
+    && luarocks install luaossl \
     && apk del .build-deps \
     && rm -rf /tmp/* \
     && cd /tmp
