@@ -102,7 +102,7 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
         #时区设置时间依赖
         tzdata \
         # resty命令行工具和crypto依赖
-        # perl \
+        perl \
     && cp "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && echo "$TZ" > /etc/timezone \
     \
@@ -184,6 +184,7 @@ RUN sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/reposi
     && luarocks install lua-resty-jwt 0.2.0-0 \
     && luarocks install lua-resty-consul 0.2-0 \
     && luarocks install luaossl \
+    && luarocks install lua-resty-repl \
     && apk del .build-deps \
     && rm -rf /tmp/* \
     && cd /tmp
